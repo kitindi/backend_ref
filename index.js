@@ -1,11 +1,18 @@
 // const express = require("express");
+import "dotenv/config";
 import express from "express";
 import router from "./routes.js";
 import multer from "multer";
 import { storage } from "./config/multer.js";
+import { connectDB } from "./config/db.js";
 
 const app = express();
+
 const port = 3000;
+
+// connect to database
+await connectDB();
+
 const upload = multer({
   storage,
   limits: {
