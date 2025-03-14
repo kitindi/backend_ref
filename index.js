@@ -1,6 +1,10 @@
 // const express = require("express");
 import "dotenv/config";
 import express from "express";
+import cookieParser from "cookie-parser";
+import session from "express-session";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import router from "./routes.js";
 import multer from "multer";
 import { storage } from "./config/multer.js";
@@ -25,7 +29,14 @@ const upload = multer({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(upload.single("image"));
-app.use(cookieParser);
+app.use(cookieParser());
+app.use(
+  session({
+    secret: "sample-secret",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 
 // decalare a middleware
 
@@ -68,6 +79,33 @@ app.delete("/person/:id", async (req, res) => {
   res.send("Successfully Deleted");
 });
 
+const users = [];
+
+// using session-cookie
+
+// app.post("/register", async (req, res) => {
+//   const { username, password } = req.body;
+//   users.push({ username, password });
+//   res.send("User registerd");
+// });
+// app.post("/login", async (req, res) => {
+//   const { username, password } = req.body;
+//   const user = users.find((user) => user.username === username);
+
+//   if (!user | (password != user.password)) {
+//     return res.send("Not Authorised user");
+//   }
+//   req.session.user = user;
+//   res.send("User logged in");
+// });
+
+// app.get("/dash", (req, res) => {
+//   if (!req.session.user) {
+//     res.send("Unauthorised");
+//   }
+//   res.send(`Welcome ${req.session.user.username}`);
+// });
+
 // app.post("/author", (req, res) => {
 //   const { name } = req.body;
 //   res.json({ message: `This note is written by ${name}` });
@@ -89,7 +127,51 @@ app.delete("/person/:id", async (req, res) => {
 //   console.log(req.file);
 //   res.json({ message: "Form received" });
 // });
+
+// USE JWT FOR AUTHENTICATION
+
+app.post("/register", async (req, res) => {
+  const { username, password } = req.body;
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  users.push({
+    username,
+    password: hashedPassword,
+  });
+
+  res.send("User created!");
+});
+
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+  const user = users.find((u) => u.username === username);
+
+  if (!user | !(await bcrypt.compare(password, user.password))) {
+    return res.send("Not authorized!");
+  }
+  // generate token
+
+  const token = jwt.sign({ username: username }, "1234#secret");
+
+  res.json({ token });
+});
+
+app.get("/dash", (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    const decoded = jwt.verify(token, "1234#secret");
+    if (decoded.username) {
+      res.send(`Welcome ${decoded.username}`);
+    } else {
+      res.send("Access denied");
+    }
+  } catch (error) {
+    res.send("Access denied");
+  }
+});
 // error handlers
+
 app.get("/error", () => {
   throw Error("This is test error!");
 });
